@@ -3,13 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: ID Creator Bot API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: ids
+    description: Generated ID operations
+  - name: batches
+    description: Batch operations
+  - name: settings
+    description: Bot settings
+  - name: proxies
+    description: Proxy management
 paths:
   /healthz:
     get:
@@ -24,6 +32,269 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /ids:
+    get:
+      operationId: listIds
+      tags: [ids]
+      summary: List all generated IDs
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [success, failed, pending]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of generated IDs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdListResponse"
+
+  /ids/stats:
+    get:
+      operationId: getIdStats
+      tags: [ids]
+      summary: Get dashboard stats
+      responses:
+        "200":
+          description: Stats summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdStats"
+
+  /ids/{id}:
+    delete:
+      operationId: deleteId
+      tags: [ids]
+      summary: Delete a generated ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResult"
+
+  /ids/{id}/retry:
+    post:
+      operationId: retryId
+      tags: [ids]
+      summary: Retry a failed ID generation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Retry result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedId"
+
+  /ids/export:
+    get:
+      operationId: exportIds
+      tags: [ids]
+      summary: Export IDs as CSV data
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [success, failed, all]
+            default: success
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [txt, csv]
+            default: csv
+      responses:
+        "200":
+          description: Export data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportResult"
+
+  /batches:
+    get:
+      operationId: listBatches
+      tags: [batches]
+      summary: List all batches
+      responses:
+        "200":
+          description: List of batches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Batch"
+    post:
+      operationId: createBatch
+      tags: [batches]
+      summary: Start a new generation batch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchInput"
+      responses:
+        "201":
+          description: Batch created and started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Batch"
+
+  /batches/{id}:
+    get:
+      operationId: getBatch
+      tags: [batches]
+      summary: Get batch details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Batch details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Batch"
+
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get bot settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+    put:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update bot settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsInput"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+
+  /proxies:
+    get:
+      operationId: listProxies
+      tags: [proxies]
+      summary: List all proxies
+      responses:
+        "200":
+          description: List of proxies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Proxy"
+    post:
+      operationId: addProxy
+      tags: [proxies]
+      summary: Add a proxy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProxyInput"
+      responses:
+        "201":
+          description: Proxy added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proxy"
+
+  /proxies/{id}:
+    delete:
+      operationId: deleteProxy
+      tags: [proxies]
+      summary: Delete a proxy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResult"
+
+    patch:
+      operationId: toggleProxy
+      tags: [proxies]
+      summary: Toggle proxy active status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProxyToggle"
+      responses:
+        "200":
+          description: Updated proxy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proxy"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +305,206 @@ components:
       required:
         - status
 
+    GeneratedId:
+      type: object
+      required: [id, email, username, password, status, createdAt]
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+        recoveryEmail:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [success, failed, pending]
+        errorMessage:
+          type: ["string", "null"]
+        batchId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+
+    IdListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedId"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    IdStats:
+      type: object
+      required: [total, todayTotal, successCount, failedCount, pendingCount, successRate, todaySuccess, todayFailed]
+      properties:
+        total:
+          type: integer
+        todayTotal:
+          type: integer
+        successCount:
+          type: integer
+        failedCount:
+          type: integer
+        pendingCount:
+          type: integer
+        successRate:
+          type: number
+        todaySuccess:
+          type: integer
+        todayFailed:
+          type: integer
+
+    DeleteResult:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+
+    ExportResult:
+      type: object
+      required: [data, count, format]
+      properties:
+        data:
+          type: string
+        count:
+          type: integer
+        format:
+          type: string
+
+    Batch:
+      type: object
+      required: [id, name, targetCount, status, createdAt, successCount, failCount]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        targetCount:
+          type: integer
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        createdAt:
+          type: string
+        completedAt:
+          type: ["string", "null"]
+        successCount:
+          type: integer
+        failCount:
+          type: integer
+        progress:
+          type: integer
+
+    BatchInput:
+      type: object
+      required: [targetCount]
+      properties:
+        targetCount:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        name:
+          type: string
+
+    Settings:
+      type: object
+      required: [id, dailyTarget, scheduleTime, proxyEnabled, retryEnabled, retryMax, isActive, emailDomain, usernamePrefix]
+      properties:
+        id:
+          type: integer
+        dailyTarget:
+          type: integer
+        scheduleTime:
+          type: string
+        proxyEnabled:
+          type: boolean
+        retryEnabled:
+          type: boolean
+        retryMax:
+          type: integer
+        isActive:
+          type: boolean
+        emailDomain:
+          type: string
+        usernamePrefix:
+          type: string
+
+    SettingsInput:
+      type: object
+      properties:
+        dailyTarget:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        scheduleTime:
+          type: string
+        proxyEnabled:
+          type: boolean
+        retryEnabled:
+          type: boolean
+        retryMax:
+          type: integer
+          minimum: 1
+          maximum: 10
+        isActive:
+          type: boolean
+        emailDomain:
+          type: string
+        usernamePrefix:
+          type: string
+
+    Proxy:
+      type: object
+      required: [id, host, port, isActive, status, createdAt]
+      properties:
+        id:
+          type: integer
+        host:
+          type: string
+        port:
+          type: integer
+        username:
+          type: ["string", "null"]
+        password:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        status:
+          type: string
+          enum: [active, inactive, failed]
+        lastUsed:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    ProxyInput:
+      type: object
+      required: [host, port]
+      properties:
+        host:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        password:
+          type: string
+
+    ProxyToggle:
+      type: object
+      required: [isActive]
+      properties:
+        isActive:
+          type: boolean
