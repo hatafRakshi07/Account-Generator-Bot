@@ -8,8 +8,8 @@ let bot: TelegramBot | null = null;
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
-function escape(text: string | number): string {
-  return String(text).replace(/[_*[\]()~`>#+=|{}.!-]/g, "\\$&");
+async function send(chatId: number, text: string) {
+  await bot!.sendMessage(chatId, text);
 }
 
 async function getStats() {
@@ -109,82 +109,80 @@ async function runBatch(targetCount: number, batchName: string) {
 // ── command handlers ───────────────────────────────────────────────────────
 
 async function cmdStart(chatId: number) {
-  const msg = `*ID Creator Bot* 🤖
-
-Aapka bot ready hai\\! Neeche commands use karein:
-
-/stats \\- Aaj ke aur total stats dekhein
-/generate \\<count\\> \\- IDs generate karein \\(e\\.g\\. /generate 50\\)
-/batches \\- Recent batches ki list
-/export \\- Last 20 successful IDs export karein
-/settings \\- Bot settings dekhein
-/proxies \\- Active proxies dekhein
-/help \\- Sab commands dekhein`;
-  await bot!.sendMessage(chatId, msg, { parse_mode: "MarkdownV2" });
+  await send(chatId,
+    "ID Creator Bot - Ready!\n\n" +
+    "Commands:\n" +
+    "/stats - Stats dekhein\n" +
+    "/generate 50 - 50 IDs banao\n" +
+    "/batches - Recent batches\n" +
+    "/export - Last 20 IDs download karein\n" +
+    "/settings - Bot settings\n" +
+    "/proxies - Proxy list\n" +
+    "/help - Sab commands"
+  );
 }
 
 async function cmdHelp(chatId: number) {
-  const msg = `*Available Commands*
-
-📊 /stats \\- Total aur aaj ke stats
-⚙️ /settings \\- Current configuration
-🚀 /generate \\<count\\> \\- Naya batch shuru karein
-📋 /batches \\- Recent 5 batches
-📤 /export \\- Last 20 IDs copy karein
-🌐 /proxies \\- Proxy list dekhein
-❓ /help \\- Yeh message
-
-*Example:*
-\`/generate 100\` \\- 100 IDs banao`;
-  await bot!.sendMessage(chatId, msg, { parse_mode: "MarkdownV2" });
+  await send(chatId,
+    "Available Commands:\n\n" +
+    "/start - Welcome message\n" +
+    "/stats - Total aur aaj ke stats\n" +
+    "/generate <count> - Naya batch shuru karein\n" +
+    "  Example: /generate 100\n" +
+    "/batches - Recent 5 batches ki list\n" +
+    "/export - Last 20 successful IDs .txt file mein\n" +
+    "/settings - Current configuration\n" +
+    "/proxies - Proxy list\n" +
+    "/help - Yeh message"
+  );
 }
 
 async function cmdStats(chatId: number) {
-  await bot!.sendMessage(chatId, "📊 Stats la raha hoon...");
+  await send(chatId, "Stats la raha hoon...");
   const s = await getStats();
-  const msg = `*Current Stats*
-
-👥 *Total IDs:* ${escape(s.total)}
-✅ *Success:* ${escape(s.success)}
-❌ *Failed:* ${escape(s.failed)}
-📈 *Success Rate:* ${escape(s.rate)}%
-
-*Aaj ka:*
-✅ Today Success: ${escape(s.todaySuccess)}
-❌ Today Failed: ${escape(s.todayFailed)}
-📅 Today Total: ${escape(s.todaySuccess + s.todayFailed)}`;
-  await bot!.sendMessage(chatId, msg, { parse_mode: "MarkdownV2" });
+  await send(chatId,
+    "=== Current Stats ===\n\n" +
+    `Total IDs: ${s.total}\n` +
+    `Success: ${s.success}\n` +
+    `Failed: ${s.failed}\n` +
+    `Success Rate: ${s.rate}%\n\n` +
+    "=== Aaj Ka ===\n" +
+    `Today Success: ${s.todaySuccess}\n` +
+    `Today Failed: ${s.todayFailed}\n` +
+    `Today Total: ${s.todaySuccess + s.todayFailed}`
+  );
 }
 
 async function cmdGenerate(chatId: number, countArg?: string) {
   const count = parseInt(countArg ?? "10", 10);
   if (isNaN(count) || count < 1 || count > 5000) {
-    await bot!.sendMessage(chatId, "❌ Count galat hai\\. 1 se 5000 ke beech number dein\\.\n\nExample: `/generate 50`", { parse_mode: "MarkdownV2" });
+    await send(chatId, "Count galat hai. 1 se 5000 ke beech number dein.\n\nExample: /generate 50");
     return;
   }
 
   const settings = await getSettings();
-  const mode = settings?.useTempEmail ? "Temp Mail \\(mail\\.tm\\)" : escape(`Custom (${settings?.emailDomain ?? "gmail.com"})`);
+  const mode = settings?.useTempEmail
+    ? "Temp Mail (mail.tm)"
+    : `Custom Domain (${settings?.emailDomain ?? "gmail.com"})`;
 
-  await bot!.sendMessage(chatId, `🚀 *${escape(count)} IDs generate ho rahi hain\\.\\.\\.*\n\nMode: ${mode}\n\n_Thodi der wait karein\\.\\.\\._`, { parse_mode: "MarkdownV2" });
+  await send(chatId, `${count} IDs generate ho rahi hain...\nMode: ${mode}\n\nThodi der wait karein...`);
 
   try {
     const batchName = `Telegram Batch - ${new Date().toLocaleString()}`;
     const result = await runBatch(count, batchName);
+    const rate = Math.round((result.successCount / count) * 100);
 
-    const msg = `✅ *Generation Complete\\!*
-
-📦 Batch: ${escape(result.batch.name)}
-🎯 Target: ${escape(count)}
-✅ Success: ${escape(result.successCount)}
-❌ Failed: ${escape(result.failCount)}
-📈 Rate: ${escape(Math.round((result.successCount / count) * 100))}%
-
-Use /export to get the IDs\\.`;
-    await bot!.sendMessage(chatId, msg, { parse_mode: "MarkdownV2" });
+    await send(chatId,
+      "=== Generation Complete! ===\n\n" +
+      `Target: ${count}\n` +
+      `Success: ${result.successCount}\n` +
+      `Failed: ${result.failCount}\n` +
+      `Rate: ${rate}%\n\n` +
+      "IDs pane ke liye /export karein."
+    );
   } catch (err) {
     logger.error({ err }, "Telegram generate error");
-    await bot!.sendMessage(chatId, "❌ Generation mein error aaya\\. Please dobara try karein\\.", { parse_mode: "MarkdownV2" });
+    await send(chatId, "Generation mein error aaya. Please dobara try karein.");
   }
 }
 
@@ -196,19 +194,19 @@ async function cmdBatches(chatId: number) {
     .limit(5);
 
   if (rows.length === 0) {
-    await bot!.sendMessage(chatId, "📋 Abhi koi batch nahi hai\\. `/generate 50` se shuru karein\\.", { parse_mode: "MarkdownV2" });
+    await send(chatId, "Abhi koi batch nahi hai. /generate 50 se shuru karein.");
     return;
   }
 
-  const statusIcon = (s: string) => ({ completed: "✅", running: "🔄", failed: "❌", pending: "⏳" }[s] ?? "❓");
+  const statusIcon = (s: string) =>
+    ({ completed: "[DONE]", running: "[RUNNING]", failed: "[FAILED]", pending: "[PENDING]" }[s] ?? "[?]");
 
   const lines = rows.map((b) => {
     const rate = b.targetCount > 0 ? Math.round((b.successCount / b.targetCount) * 100) : 0;
-    return `${statusIcon(b.status)} *${escape(b.name)}*\n   Target: ${escape(b.targetCount)} | Success: ${escape(b.successCount)} | Rate: ${escape(rate)}%`;
+    return `${statusIcon(b.status)} ${b.name}\nTarget: ${b.targetCount} | Success: ${b.successCount} | Rate: ${rate}%`;
   });
 
-  const msg = `*Recent Batches*\n\n${lines.join("\n\n")}`;
-  await bot!.sendMessage(chatId, msg, { parse_mode: "MarkdownV2" });
+  await send(chatId, "=== Recent Batches ===\n\n" + lines.join("\n\n"));
 }
 
 async function cmdExport(chatId: number) {
@@ -220,18 +218,18 @@ async function cmdExport(chatId: number) {
     .limit(20);
 
   if (rows.length === 0) {
-    await bot!.sendMessage(chatId, "📤 Export ke liye koi successful ID nahi hai\\. Pehle `/generate` karein\\.", { parse_mode: "MarkdownV2" });
+    await send(chatId, "Export ke liye koi successful ID nahi hai. Pehle /generate karein.");
     return;
   }
 
   const lines = rows.map((r) => `${r.email}:${r.username}:${r.password}`).join("\n");
   const fileContent = Buffer.from(lines, "utf-8");
 
-  await bot!.sendMessage(chatId, `📤 Last *${escape(rows.length)}* IDs export kar raha hoon\\.`, { parse_mode: "MarkdownV2" });
+  await send(chatId, `Last ${rows.length} IDs export ho rahi hain...`);
   await bot!.sendDocument(
     chatId,
     fileContent,
-    { caption: `✅ ${rows.length} IDs exported\nFormat: email:username:password` },
+    { caption: `${rows.length} IDs exported\nFormat: email:username:password` },
     { filename: `ids_export_${Date.now()}.txt`, contentType: "text/plain" }
   );
 }
@@ -239,37 +237,36 @@ async function cmdExport(chatId: number) {
 async function cmdSettings(chatId: number) {
   const s = await getSettings();
   if (!s) {
-    await bot!.sendMessage(chatId, "⚙️ Settings nahi mili\\. Dashboard se configure karein\\.", { parse_mode: "MarkdownV2" });
+    await send(chatId, "Settings nahi mili. Dashboard se configure karein.");
     return;
   }
 
-  const msg = `*Current Settings*
-
-🎯 Daily Target: ${escape(s.dailyTarget)}
-⏰ Schedule: ${escape(s.scheduleTime)}
-📧 Email Mode: ${s.useTempEmail ? "Temp Mail \\(mail\\.tm\\)" : escape(`Custom (${s.emailDomain})`)}
-👤 Username Prefix: ${escape(s.usernamePrefix)}
-🌐 Proxy: ${s.proxyEnabled ? "ON" : "OFF"}
-🔄 Auto Retry: ${s.retryEnabled ? `ON \\(max ${escape(s.retryMax)}\\)` : "OFF"}
-⚡ Bot Active: ${s.isActive ? "YES" : "NO"}
-
-_Settings badlne ke liye dashboard use karein_`;
-  await bot!.sendMessage(chatId, msg, { parse_mode: "MarkdownV2" });
+  await send(chatId,
+    "=== Current Settings ===\n\n" +
+    `Daily Target: ${s.dailyTarget}\n` +
+    `Schedule: ${s.scheduleTime}\n` +
+    `Email Mode: ${s.useTempEmail ? "Temp Mail (mail.tm)" : `Custom (${s.emailDomain})`}\n` +
+    `Username Prefix: ${s.usernamePrefix}\n` +
+    `Proxy: ${s.proxyEnabled ? "ON" : "OFF"}\n` +
+    `Auto Retry: ${s.retryEnabled ? `ON (max ${s.retryMax})` : "OFF"}\n` +
+    `Bot Active: ${s.isActive ? "YES" : "NO"}\n\n` +
+    "Settings badlne ke liye dashboard use karein."
+  );
 }
 
 async function cmdProxies(chatId: number) {
   const rows = await db.select().from(proxiesTable).orderBy(proxiesTable.createdAt);
 
   if (rows.length === 0) {
-    await bot!.sendMessage(chatId, "🌐 Koi proxy nahi hai\\. Dashboard se proxies add karein\\.", { parse_mode: "MarkdownV2" });
+    await send(chatId, "Koi proxy nahi hai. Dashboard se proxies add karein.");
     return;
   }
 
-  const statusIcon = (s: string) => ({ active: "🟢", inactive: "🔴", failed: "⚠️" }[s] ?? "❓");
-  const lines = rows.map((p) => `${statusIcon(p.status)} ${escape(p.host)}:${escape(p.port)} \\(${escape(p.status)}\\)`);
+  const statusIcon = (s: string) =>
+    ({ active: "[ON]", inactive: "[OFF]", failed: "[ERR]" }[s] ?? "[?]");
 
-  const msg = `*Proxy List* \\(${escape(rows.length)} total\\)\n\n${lines.join("\n")}`;
-  await bot!.sendMessage(chatId, msg, { parse_mode: "MarkdownV2" });
+  const lines = rows.map((p) => `${statusIcon(p.status)} ${p.host}:${p.port} (${p.status})`);
+  await send(chatId, `=== Proxy List (${rows.length} total) ===\n\n` + lines.join("\n"));
 }
 
 // ── bot startup ────────────────────────────────────────────────────────────
@@ -282,18 +279,55 @@ export function startTelegramBot(): void {
   }
 
   try {
-    bot = new TelegramBot(token, { polling: true });
+    bot = new TelegramBot(token, {
+      polling: {
+        interval: 1000,
+        autoStart: true,
+        params: { timeout: 10 },
+      },
+    });
 
-    bot.onText(/\/start/, (msg) => cmdStart(msg.chat.id).catch((e) => logger.error({ e }, "cmd start error")));
-    bot.onText(/\/help/, (msg) => cmdHelp(msg.chat.id).catch((e) => logger.error({ e }, "cmd help error")));
-    bot.onText(/\/stats/, (msg) => cmdStats(msg.chat.id).catch((e) => logger.error({ e }, "cmd stats error")));
-    bot.onText(/\/generate(?:\s+(\d+))?/, (msg, match) => cmdGenerate(msg.chat.id, match?.[1]).catch((e) => logger.error({ e }, "cmd generate error")));
-    bot.onText(/\/batches/, (msg) => cmdBatches(msg.chat.id).catch((e) => logger.error({ e }, "cmd batches error")));
-    bot.onText(/\/export/, (msg) => cmdExport(msg.chat.id).catch((e) => logger.error({ e }, "cmd export error")));
-    bot.onText(/\/settings/, (msg) => cmdSettings(msg.chat.id).catch((e) => logger.error({ e }, "cmd settings error")));
-    bot.onText(/\/proxies/, (msg) => cmdProxies(msg.chat.id).catch((e) => logger.error({ e }, "cmd proxies error")));
+    // Log every incoming message for debugging
+    bot.on("message", (msg) => {
+      logger.info({ chatId: msg.chat.id, text: msg.text }, "Telegram message received");
+    });
 
-    bot.on("polling_error", (err) => logger.error({ err }, "Telegram polling error"));
+    bot.onText(/\/start/, (msg) => {
+      logger.info({ chatId: msg.chat.id }, "Handling /start");
+      cmdStart(msg.chat.id).catch((e) => logger.error({ e }, "cmd start error"));
+    });
+
+    bot.onText(/\/help/, (msg) => {
+      cmdHelp(msg.chat.id).catch((e) => logger.error({ e }, "cmd help error"));
+    });
+
+    bot.onText(/\/stats/, (msg) => {
+      cmdStats(msg.chat.id).catch((e) => logger.error({ e }, "cmd stats error"));
+    });
+
+    bot.onText(/\/generate(?:\s+(\d+))?/, (msg, match) => {
+      cmdGenerate(msg.chat.id, match?.[1]).catch((e) => logger.error({ e }, "cmd generate error"));
+    });
+
+    bot.onText(/\/batches/, (msg) => {
+      cmdBatches(msg.chat.id).catch((e) => logger.error({ e }, "cmd batches error"));
+    });
+
+    bot.onText(/\/export/, (msg) => {
+      cmdExport(msg.chat.id).catch((e) => logger.error({ e }, "cmd export error"));
+    });
+
+    bot.onText(/\/settings/, (msg) => {
+      cmdSettings(msg.chat.id).catch((e) => logger.error({ e }, "cmd settings error"));
+    });
+
+    bot.onText(/\/proxies/, (msg) => {
+      cmdProxies(msg.chat.id).catch((e) => logger.error({ e }, "cmd proxies error"));
+    });
+
+    bot.on("polling_error", (err) => {
+      logger.error({ err: err.message }, "Telegram polling error");
+    });
 
     logger.info("Telegram bot started successfully");
   } catch (err) {
