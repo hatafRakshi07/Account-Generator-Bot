@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useGetSettings, useUpdateSettings, getGetSettingsQueryKey } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,7 @@ const settingsSchema = z.object({
   isActive: z.boolean(),
   emailDomain: z.string().min(1),
   usernamePrefix: z.string().min(1),
+  useTempEmail: z.boolean(),
 });
 
 export default function Settings() {
@@ -42,6 +43,7 @@ export default function Settings() {
       isActive: false,
       emailDomain: "example.com",
       usernamePrefix: "user",
+      useTempEmail: false,
     },
   });
 
@@ -54,6 +56,8 @@ export default function Settings() {
     }
   }, [settings, form]);
 
+  const watchTempEmail = form.watch("useTempEmail");
+
   const onSubmit = (values: z.infer<typeof settingsSchema>) => {
     updateSettings.mutate(
       { data: values },
@@ -61,7 +65,7 @@ export default function Settings() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
           toast({ title: "Settings saved successfully" });
-        }
+        },
       }
     );
   };
@@ -96,8 +100,9 @@ export default function Settings() {
         <CardContent className="pt-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              
+
               <div className="grid gap-6 md:grid-cols-2">
+                {/* Left column */}
                 <div className="space-y-6">
                   <div className="bg-muted/50 p-4 rounded-md border border-border">
                     <h3 className="font-mono text-sm tracking-wider mb-4 border-b border-border pb-2 text-muted-foreground">GENERATION RULES</h3>
@@ -109,20 +114,7 @@ export default function Settings() {
                           <FormItem>
                             <Label className="font-mono text-xs">DAILY TARGET</Label>
                             <FormControl>
-                              <Input {...field} type="number" className="font-mono bg-input border-border" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="emailDomain"
-                        render={({ field }) => (
-                          <FormItem>
-                            <Label className="font-mono text-xs">EMAIL DOMAIN</Label>
-                            <FormControl>
-                              <Input {...field} className="font-mono bg-input border-border" />
+                              <Input {...field} type="number" className="font-mono bg-input border-border" data-testid="input-daily-target" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -135,16 +127,68 @@ export default function Settings() {
                           <FormItem>
                             <Label className="font-mono text-xs">USERNAME PREFIX</Label>
                             <FormControl>
-                              <Input {...field} className="font-mono bg-input border-border" />
+                              <Input {...field} className="font-mono bg-input border-border" data-testid="input-username-prefix" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
+
+                      {/* Temp email toggle */}
+                      <FormField
+                        control={form.control}
+                        name="useTempEmail"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-3 shadow-sm">
+                            <div className="space-y-0.5">
+                              <Label className="font-mono text-xs text-primary">USE TEMP EMAIL</Label>
+                              <FormDescription className="text-xs">
+                                Real disposable emails via mail.tm
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                className="data-[state=checked]:bg-primary"
+                                data-testid="switch-use-temp-email"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Only show email domain when temp mail is OFF */}
+                      {!watchTempEmail && (
+                        <FormField
+                          control={form.control}
+                          name="emailDomain"
+                          render={({ field }) => (
+                            <FormItem>
+                              <Label className="font-mono text-xs">EMAIL DOMAIN</Label>
+                              <FormControl>
+                                <Input {...field} className="font-mono bg-input border-border" data-testid="input-email-domain" />
+                              </FormControl>
+                              <FormDescription className="text-xs">
+                                Used when temp email is off
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
+                      {watchTempEmail && (
+                        <div className="rounded-md bg-primary/10 border border-primary/20 p-3 text-xs font-mono text-primary space-y-1">
+                          <div className="font-semibold">TEMP MAIL ACTIVE</div>
+                          <div className="text-primary/70">Accounts will be created on mail.tm domains. Generation is slower but emails are real and functional.</div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
+                {/* Right column */}
                 <div className="space-y-6">
                   <div className="bg-muted/50 p-4 rounded-md border border-border">
                     <h3 className="font-mono text-sm tracking-wider mb-4 border-b border-border pb-2 text-muted-foreground">AUTOMATION & NETWORK</h3>
@@ -163,12 +207,13 @@ export default function Settings() {
                                 checked={field.value}
                                 onCheckedChange={field.onChange}
                                 className="data-[state=checked]:bg-primary"
+                                data-testid="switch-is-active"
                               />
                             </FormControl>
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="scheduleTime"
@@ -176,7 +221,7 @@ export default function Settings() {
                           <FormItem>
                             <Label className="font-mono text-xs">SCHEDULE TIME (HH:MM)</Label>
                             <FormControl>
-                              <Input {...field} type="time" className="font-mono bg-input border-border" />
+                              <Input {...field} type="time" className="font-mono bg-input border-border" data-testid="input-schedule-time" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -187,7 +232,7 @@ export default function Settings() {
                         control={form.control}
                         name="proxyEnabled"
                         render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-3 shadow-sm bg-card mt-2">
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-3 shadow-sm bg-card">
                             <div className="space-y-0.5">
                               <Label className="font-mono text-xs">USE PROXIES</Label>
                             </div>
@@ -196,6 +241,7 @@ export default function Settings() {
                                 checked={field.value}
                                 onCheckedChange={field.onChange}
                                 className="data-[state=checked]:bg-primary"
+                                data-testid="switch-proxy-enabled"
                               />
                             </FormControl>
                           </FormItem>
@@ -214,6 +260,7 @@ export default function Settings() {
                                   checked={field.value}
                                   onCheckedChange={field.onChange}
                                   className="data-[state=checked]:bg-primary"
+                                  data-testid="switch-retry-enabled"
                                 />
                               </FormControl>
                             </FormItem>
@@ -226,7 +273,7 @@ export default function Settings() {
                             <FormItem>
                               <Label className="font-mono text-xs">MAX RETRIES</Label>
                               <FormControl>
-                                <Input {...field} type="number" className="font-mono bg-input border-border h-11" />
+                                <Input {...field} type="number" className="font-mono bg-input border-border h-11" data-testid="input-retry-max" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -239,13 +286,14 @@ export default function Settings() {
               </div>
 
               <div className="flex justify-end pt-4 border-t border-border">
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={updateSettings.isPending}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono uppercase tracking-wider"
+                  data-testid="button-save-settings"
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  {updateSettings.isPending ? 'SAVING...' : 'SAVE CONFIGURATION'}
+                  {updateSettings.isPending ? "SAVING..." : "SAVE CONFIGURATION"}
                 </Button>
               </div>
             </form>

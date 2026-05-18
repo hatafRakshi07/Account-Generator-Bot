@@ -12,6 +12,7 @@ export const settingsTable = pgTable("settings", {
   isActive: boolean("is_active").notNull().default(true),
   emailDomain: text("email_domain").notNull().default("gmail.com"),
   usernamePrefix: text("username_prefix").notNull().default("user"),
+  useTempEmail: boolean("use_temp_email").notNull().default(false),
 });
 
 export const insertSettingsSchema = createInsertSchema(settingsTable).omit({ id: true });

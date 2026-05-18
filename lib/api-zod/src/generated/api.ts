@@ -174,7 +174,8 @@ export const GetSettingsResponse = zod.object({
   "retryMax": zod.number(),
   "isActive": zod.boolean(),
   "emailDomain": zod.string(),
-  "usernamePrefix": zod.string()
+  "usernamePrefix": zod.string(),
+  "useTempEmail": zod.boolean()
 })
 
 
@@ -195,7 +196,8 @@ export const UpdateSettingsBody = zod.object({
   "retryMax": zod.number().min(1).max(updateSettingsBodyRetryMaxMax).optional(),
   "isActive": zod.boolean().optional(),
   "emailDomain": zod.string().optional(),
-  "usernamePrefix": zod.string().optional()
+  "usernamePrefix": zod.string().optional(),
+  "useTempEmail": zod.boolean().optional()
 })
 
 export const UpdateSettingsResponse = zod.object({
@@ -207,7 +209,8 @@ export const UpdateSettingsResponse = zod.object({
   "retryMax": zod.number(),
   "isActive": zod.boolean(),
   "emailDomain": zod.string(),
-  "usernamePrefix": zod.string()
+  "usernamePrefix": zod.string(),
+  "useTempEmail": zod.boolean()
 })
 
 

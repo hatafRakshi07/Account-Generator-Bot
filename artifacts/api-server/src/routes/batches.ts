@@ -1,13 +1,14 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, batchesTable, generatedIdsTable } from "@workspace/db";
+import { db, batchesTable, generatedIdsTable, settingsTable } from "@workspace/db";
 import {
   ListBatchesResponse,
   CreateBatchBody,
   GetBatchParams,
   GetBatchResponse,
 } from "@workspace/api-zod";
-import { generateCredentials } from "../lib/generator";
+import { generateCredentials, generateTempMailCredentials } from "../lib/generator";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -38,6 +39,12 @@ router.post("/batches", async (req, res): Promise<void> => {
   const { targetCount, name } = parsed.data;
   const batchName = name ?? `Batch ${new Date().toLocaleString()}`;
 
+  // Read current settings
+  const [settings] = await db.select().from(settingsTable).limit(1);
+  const useTempEmail = settings?.useTempEmail ?? false;
+  const usernamePrefix = settings?.usernamePrefix ?? "user";
+  const emailDomain = settings?.emailDomain ?? "gmail.com";
+
   const [batch] = await db
     .insert(batchesTable)
     .values({
@@ -50,37 +57,76 @@ router.post("/batches", async (req, res): Promise<void> => {
     })
     .returning();
 
-  // Simulate generation (create IDs immediately)
-  const ids = [];
+  const ids: {
+    email: string;
+    username: string;
+    password: string;
+    status: string;
+    errorMessage?: string;
+    batchId: number;
+  }[] = [];
   let successCount = 0;
   let failCount = 0;
-  for (let i = 0; i < targetCount; i++) {
-    const shouldFail = Math.random() < 0.05; // 5% failure rate
-    if (shouldFail) {
-      ids.push({
-        email: `failed_${Date.now()}_${i}@example.com`,
-        username: `failed_user_${i}`,
-        password: "N/A",
-        status: "failed",
-        errorMessage: "Connection timeout",
-        batchId: batch.id,
-      });
-      failCount++;
-    } else {
-      const { email, username, password } = generateCredentials("user", "gmail.com");
-      ids.push({
-        email,
-        username,
-        password,
-        status: "success",
-        batchId: batch.id,
-      });
-      successCount++;
+
+  if (useTempEmail) {
+    // Real temp mail: create accounts concurrently in batches of 5 to avoid rate limits
+    logger.info({ targetCount, batchId: batch.id }, "Generating temp mail accounts");
+    const CONCURRENCY = 5;
+    for (let i = 0; i < targetCount; i += CONCURRENCY) {
+      const chunk = Math.min(CONCURRENCY, targetCount - i);
+      const results = await Promise.allSettled(
+        Array.from({ length: chunk }, () => generateTempMailCredentials(usernamePrefix))
+      );
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          ids.push({
+            email: result.value.email,
+            username: result.value.username,
+            password: result.value.password,
+            status: "success",
+            batchId: batch.id,
+          });
+          successCount++;
+        } else {
+          ids.push({
+            email: `failed_${Date.now()}@temp.invalid`,
+            username: `failed_user`,
+            password: "N/A",
+            status: "failed",
+            errorMessage: "Temp mail creation failed",
+            batchId: batch.id,
+          });
+          failCount++;
+        }
+      }
+      // Small delay between chunks to avoid rate limiting
+      if (i + CONCURRENCY < targetCount) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+  } else {
+    // Fast local generation
+    for (let i = 0; i < targetCount; i++) {
+      const shouldFail = Math.random() < 0.05;
+      if (shouldFail) {
+        ids.push({
+          email: `failed_${Date.now()}_${i}@example.com`,
+          username: `failed_user_${i}`,
+          password: "N/A",
+          status: "failed",
+          errorMessage: "Connection timeout",
+          batchId: batch.id,
+        });
+        failCount++;
+      } else {
+        const creds = generateCredentials(usernamePrefix, emailDomain);
+        ids.push({ ...creds, status: "success", batchId: batch.id });
+        successCount++;
+      }
     }
   }
 
   if (ids.length > 0) {
-    // Insert in chunks of 100
     const chunkSize = 100;
     for (let i = 0; i < ids.length; i += chunkSize) {
       await db.insert(generatedIdsTable).values(ids.slice(i, i + chunkSize));

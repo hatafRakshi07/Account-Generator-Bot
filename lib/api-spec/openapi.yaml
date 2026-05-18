@@ -420,7 +420,7 @@ components:
 
     Settings:
       type: object
-      required: [id, dailyTarget, scheduleTime, proxyEnabled, retryEnabled, retryMax, isActive, emailDomain, usernamePrefix]
+      required: [id, dailyTarget, scheduleTime, proxyEnabled, retryEnabled, retryMax, isActive, emailDomain, usernamePrefix, useTempEmail]
       properties:
         id:
           type: integer
@@ -440,6 +440,8 @@ components:
           type: string
         usernamePrefix:
           type: string
+        useTempEmail:
+          type: boolean
 
     SettingsInput:
       type: object
@@ -464,6 +466,8 @@ components:
           type: string
         usernamePrefix:
           type: string
+        useTempEmail:
+          type: boolean
 
     Proxy:
       type: object

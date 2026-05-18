@@ -16,4 +16,5 @@ export interface Settings {
   isActive: boolean;
   emailDomain: string;
   usernamePrefix: string;
+  useTempEmail: boolean;
 }

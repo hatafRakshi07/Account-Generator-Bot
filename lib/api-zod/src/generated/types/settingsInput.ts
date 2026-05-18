@@ -23,4 +23,5 @@ export interface SettingsInput {
   isActive?: boolean;
   emailDomain?: string;
   usernamePrefix?: string;
+  useTempEmail?: boolean;
 }

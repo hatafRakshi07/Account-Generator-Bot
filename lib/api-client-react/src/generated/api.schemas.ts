@@ -103,6 +103,7 @@ export interface Settings {
   isActive: boolean;
   emailDomain: string;
   usernamePrefix: string;
+  useTempEmail: boolean;
 }
 
 export interface SettingsInput {
@@ -122,6 +123,7 @@ export interface SettingsInput {
   isActive?: boolean;
   emailDomain?: string;
   usernamePrefix?: string;
+  useTempEmail?: boolean;
 }
 
 export type ProxyStatus = typeof ProxyStatus[keyof typeof ProxyStatus];
